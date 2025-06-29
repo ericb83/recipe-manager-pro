@@ -26,11 +26,13 @@ import {
   RecipeFormData,
 } from "@/lib/recipes";
 import { testSupabaseConnection, getSupabaseConfig } from "@/lib/supabase-test";
+import { useToast } from "@/contexts/ToastContext";
 import { RecipeForm } from "./RecipeForm";
 import { RecipeDetail } from "./RecipeDetail";
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState("recipes");
   const [recipes, setRecipes] = useState<RecipeWithIngredients[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<
@@ -135,8 +137,16 @@ export function Dashboard() {
       await createRecipe(recipeData);
       await fetchRecipes(); // Refresh the list
       setIsRecipeFormOpen(false);
-    } catch (error) {
+      toast.success(
+        "Recipe Created!",
+        `"${recipeData.title}" has been successfully added to your collection.`
+      );
+    } catch (error: any) {
       console.error("Error creating recipe:", error);
+      toast.error(
+        "Failed to Create Recipe",
+        error.message || "An unexpected error occurred. Please try again."
+      );
       throw error;
     } finally {
       setIsSubmitting(false);
@@ -152,8 +162,16 @@ export function Dashboard() {
       await fetchRecipes(); // Refresh the list
       setIsRecipeFormOpen(false);
       setEditingRecipe(null);
-    } catch (error) {
+      toast.success(
+        "Recipe Updated!",
+        `"${recipeData.title}" has been successfully updated.`
+      );
+    } catch (error: any) {
       console.error("Error updating recipe:", error);
+      toast.error(
+        "Failed to Update Recipe",
+        error.message || "An unexpected error occurred. Please try again."
+      );
       throw error;
     } finally {
       setIsSubmitting(false);
@@ -161,15 +179,31 @@ export function Dashboard() {
   };
 
   const handleDeleteRecipe = async (recipeId: string) => {
-    if (!confirm("Are you sure you want to delete this recipe?")) return;
+    const recipe = recipes.find((r) => r.id === recipeId);
+    const recipeName = recipe?.title || "recipe";
+
+    if (
+      !confirm(
+        `Are you sure you want to delete "${recipeName}"? This action cannot be undone.`
+      )
+    )
+      return;
 
     try {
       await deleteRecipe(recipeId);
       await fetchRecipes(); // Refresh the list
       setIsRecipeDetailOpen(false);
       setSelectedRecipe(null);
-    } catch (error) {
+      toast.success(
+        "Recipe Deleted",
+        `"${recipeName}" has been removed from your collection.`
+      );
+    } catch (error: any) {
       console.error("Error deleting recipe:", error);
+      toast.error(
+        "Failed to Delete Recipe",
+        error.message || "An unexpected error occurred. Please try again."
+      );
     }
   };
 

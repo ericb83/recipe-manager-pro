@@ -1,7 +1,18 @@
 "use client";
 
-import { X, Clock, Users, ChefHat, Edit, Trash2 } from "lucide-react";
+import {
+  X,
+  Clock,
+  Users,
+  ChefHat,
+  Edit,
+  Trash2,
+  Printer,
+  Share2,
+  Heart,
+} from "lucide-react";
 import { RecipeWithIngredients } from "@/lib/recipes";
+import { useToast } from "@/contexts/ToastContext";
 
 interface RecipeDetailProps {
   recipe: RecipeWithIngredients;
@@ -20,9 +31,122 @@ export function RecipeDetail({
   onDelete,
   canEdit = true,
 }: RecipeDetailProps) {
+  const toast = useToast();
+
   if (!isOpen) return null;
 
   const totalTime = (recipe.prep_time || 0) + (recipe.cook_time || 0);
+
+  const handlePrint = () => {
+    const printContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #ea5502; margin-bottom: 10px;">${recipe.title}</h1>
+        ${
+          recipe.description
+            ? `<p style="color: #666; margin-bottom: 20px;">${recipe.description}</p>`
+            : ""
+        }
+        
+        <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+          ${
+            recipe.prep_time
+              ? `<div><strong>Prep:</strong> ${recipe.prep_time} min</div>`
+              : ""
+          }
+          ${
+            recipe.cook_time
+              ? `<div><strong>Cook:</strong> ${recipe.cook_time} min</div>`
+              : ""
+          }
+          ${
+            totalTime > 0
+              ? `<div><strong>Total:</strong> ${totalTime} min</div>`
+              : ""
+          }
+          ${
+            recipe.servings
+              ? `<div><strong>Servings:</strong> ${recipe.servings}</div>`
+              : ""
+          }
+          ${
+            recipe.difficulty
+              ? `<div><strong>Difficulty:</strong> ${recipe.difficulty}</div>`
+              : ""
+          }
+        </div>
+
+        <h2 style="color: #ea5502; margin-top: 30px;">Ingredients</h2>
+        <ul style="margin-bottom: 30px;">
+          ${recipe.ingredients
+            .sort((a, b) => a.order_index - b.order_index)
+            .map(
+              (ing) =>
+                `<li>${ing.amount} ${ing.unit} ${ing.name}${
+                  ing.notes ? ` (${ing.notes})` : ""
+                }</li>`
+            )
+            .join("")}
+        </ul>
+
+        <h2 style="color: #ea5502;">Instructions</h2>
+        <div style="white-space: pre-line;">${recipe.instructions}</div>
+      </div>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${recipe.title} - Recipe</title>
+            <style>
+              @media print {
+                body { margin: 0; }
+                @page { margin: 1in; }
+              }
+            </style>
+          </head>
+          <body>${printContent}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+      printWindow.close();
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: recipe.title,
+      text: recipe.description || `Check out this recipe: ${recipe.title}`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        toast.success("Recipe Shared!", "Recipe shared successfully.");
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          // Fallback to clipboard
+          handleCopyLink();
+        }
+      }
+    } else {
+      // Fallback to clipboard
+      handleCopyLink();
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Link Copied!", "Recipe link copied to clipboard.");
+    } catch (error) {
+      toast.error("Copy Failed", "Could not copy link to clipboard.");
+    }
+  };
 
   const getDifficultyColor = (difficulty: string | null) => {
     switch (difficulty) {
@@ -60,27 +184,44 @@ export function RecipeDetail({
             )}
           </div>
           <div className="flex items-center space-x-2 ml-4">
+            <button
+              onClick={handlePrint}
+              className="p-2 text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+              title="Print Recipe"
+            >
+              <Printer className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-2 text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+              title="Share Recipe"
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
             {canEdit && (
               <>
+                <div className="w-px h-6 bg-gray-300"></div>
                 <button
                   onClick={onEdit}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                   title="Edit Recipe"
                 >
                   <Edit className="h-5 w-5" />
                 </button>
                 <button
                   onClick={onDelete}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-full"
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
                   title="Delete Recipe"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
               </>
             )}
+            <div className="w-px h-6 bg-gray-300"></div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              title="Close"
             >
               <X className="h-6 w-6" />
             </button>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Minus } from "lucide-react";
+import { X, Plus, Minus, Save, Loader2 } from "lucide-react";
 import { RecipeFormData, RecipeWithIngredients } from "@/lib/recipes";
+import { useToast } from "@/contexts/ToastContext";
 
 interface RecipeFormProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export function RecipeForm({
   recipe,
   isLoading,
 }: RecipeFormProps) {
+  const toast = useToast();
   const [formData, setFormData] = useState<RecipeFormData>({
     title: "",
     description: "",
@@ -78,16 +80,36 @@ export function RecipeForm({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Title validation
     if (!formData.title.trim()) {
       newErrors.title = "Recipe title is required";
+    } else if (formData.title.trim().length < 3) {
+      newErrors.title = "Recipe title must be at least 3 characters long";
+    } else if (formData.title.trim().length > 100) {
+      newErrors.title = "Recipe title must be less than 100 characters";
     }
 
+    // Instructions validation
     if (!formData.instructions.trim()) {
       newErrors.instructions = "Instructions are required";
+    } else if (formData.instructions.trim().length < 10) {
+      newErrors.instructions =
+        "Instructions must be at least 10 characters long";
     }
 
+    // Servings validation
     if (formData.servings <= 0) {
       newErrors.servings = "Servings must be greater than 0";
+    } else if (formData.servings > 50) {
+      newErrors.servings = "Servings must be 50 or less";
+    }
+
+    // Time validation
+    if (formData.prep_time < 0) {
+      newErrors.prep_time = "Prep time cannot be negative";
+    }
+    if (formData.cook_time < 0) {
+      newErrors.cook_time = "Cook time cannot be negative";
     }
 
     // Validate ingredients
@@ -99,9 +121,14 @@ export function RecipeForm({
     }
 
     formData.ingredients.forEach((ingredient, index) => {
-      if (ingredient.name.trim() && ingredient.amount <= 0) {
-        newErrors[`ingredient_${index}_amount`] =
-          "Amount must be greater than 0";
+      if (ingredient.name.trim()) {
+        if (ingredient.amount <= 0) {
+          newErrors[`ingredient_${index}_amount`] =
+            "Amount must be greater than 0";
+        }
+        if (!ingredient.unit.trim()) {
+          newErrors[`ingredient_${index}_unit`] = "Unit is required";
+        }
       }
     });
 
@@ -112,7 +139,13 @@ export function RecipeForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      toast.error(
+        "Form Validation Failed",
+        "Please fix the errors below and try again."
+      );
+      return;
+    }
 
     // Filter out empty ingredients
     const validIngredients = formData.ingredients.filter((ing) =>
@@ -121,13 +154,18 @@ export function RecipeForm({
 
     const recipeData: RecipeFormData = {
       ...formData,
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      instructions: formData.instructions.trim(),
+      cuisine_type: formData.cuisine_type.trim(),
       ingredients: validIngredients,
     };
 
     try {
       await onSubmit(recipeData);
-      onClose();
-    } catch (error) {
+      // Success handling is done in the parent component
+    } catch (error: any) {
+      // Error handling is done in the parent component, but we can show a fallback
       console.error("Error submitting recipe:", error);
     }
   };
@@ -515,11 +553,11 @@ export function RecipeForm({
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t">
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               Cancel
@@ -527,13 +565,19 @@ export function RecipeForm({
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+              className="flex items-center space-x-2 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 min-w-[140px] justify-center"
             >
-              {isLoading
-                ? "Saving..."
-                : recipe
-                ? "Update Recipe"
-                : "Create Recipe"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>{recipe ? "Update Recipe" : "Create Recipe"}</span>
+                </>
+              )}
             </button>
           </div>
         </form>
